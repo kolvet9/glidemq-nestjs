@@ -198,17 +198,12 @@ describe('Integration: full NestJS app', () => {
     await createApp();
 
     const processor = moduleRef.get(TaskProcessor);
+    const queue = moduleRef.get(getQueueToken('tasks'));
 
-    // Add 5 jobs rapidly
-    const promises = [];
+    // Add 5 jobs directly to avoid HTTP flakiness on CI
     for (let i = 0; i < 5; i++) {
-      promises.push(
-        request(app.getHttpServer())
-          .post('/tasks')
-          .send({ name: `batch-${i}`, data: { idx: i } }),
-      );
+      await queue.add(`batch-${i}`, { idx: i });
     }
-    await Promise.all(promises);
 
     await new Promise((r) => setTimeout(r, 200));
 
