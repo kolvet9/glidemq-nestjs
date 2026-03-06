@@ -131,6 +131,7 @@ const moduleRef = await Test.createTestingModule({
 |---------|-------------|
 | [glide-mq](https://github.com/avifenesh/glide-mq) | Core queue library |
 | [@glidemq/hono](https://github.com/avifenesh/glidemq-hono) | Hono middleware - REST API + SSE events |
+| [@glidemq/fastify](https://github.com/avifenesh/glidemq-fastify) | Fastify plugin - REST API + SSE events |
 | [@glidemq/dashboard](https://github.com/avifenesh/glidemq-dashboard) | Express middleware - web UI dashboard |
 | [@glidemq/nestjs](https://github.com/avifenesh/glidemq-nestjs) | NestJS module (you are here) |
 | [@glidemq/speedkey](https://github.com/avifenesh/speedkey) | Valkey GLIDE client with native NAPI bindings |
