@@ -1,5 +1,11 @@
 import type { ModuleMetadata, Type } from '@nestjs/common';
-import type { ConnectionOptions, WorkerOptions, JobOptions, QueueOptions } from 'glide-mq';
+import type {
+  ConnectionOptions,
+  WorkerOptions,
+  JobOptions,
+  QueueOptions,
+  BroadcastWorkerOptions,
+} from 'glide-mq';
 
 export interface GlideMQModuleOptions {
   connection?: ConnectionOptions;
@@ -39,4 +45,17 @@ export interface ProcessorOptions {
   name: string;
   concurrency?: number;
   workerOpts?: Partial<Omit<WorkerOptions, 'connection' | 'client' | 'commandClient'>>;
+}
+
+export interface RegisterBroadcastOptions {
+  name: string;
+  connection?: ConnectionOptions;
+  broadcastOpts?: { maxMessages?: number };
+}
+
+export interface BroadcastProcessorOptions {
+  name: string;
+  subscription: string;
+  concurrency?: number;
+  workerOpts?: Partial<BroadcastWorkerOptions>;
 }
