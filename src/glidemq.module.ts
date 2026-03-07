@@ -9,6 +9,7 @@ import {
 import { DiscoveryModule } from '@nestjs/core';
 import {
   GLIDEMQ_MODULE_OPTIONS,
+  GLIDEMQ_CLOSABLES,
   getQueueToken,
   getFlowProducerToken,
 } from './glidemq.constants';
@@ -18,10 +19,10 @@ import type {
   GlideMQOptionsFactory,
   RegisterQueueOptions,
   RegisterFlowProducerOptions,
+  RegisterBroadcastOptions,
 } from './glidemq.interfaces';
+import { createBroadcastProviders } from './providers/create-broadcast.provider';
 import { GlideMQExplorer } from './glidemq.explorer';
-
-export const GLIDEMQ_CLOSABLES = 'GLIDEMQ_CLOSABLES';
 
 interface Closable {
   close(): Promise<void>;
@@ -196,6 +197,16 @@ export class GlideMQModule implements OnApplicationShutdown {
 
       exports.push(token);
     }
+
+    return {
+      module: GlideMQModule,
+      providers,
+      exports,
+    };
+  }
+
+  static registerBroadcast(...options: RegisterBroadcastOptions[]): DynamicModule {
+    const { providers, exports } = createBroadcastProviders(options);
 
     return {
       module: GlideMQModule,

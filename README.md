@@ -73,6 +73,7 @@ export class EmailService {
 | `GlideMQModule.forRootAsync(options)` | Async config (e.g., from ConfigService) |
 | `GlideMQModule.registerQueue({ name })` | Register a queue for injection |
 | `GlideMQModule.registerFlowProducer({ name })` | Register a FlowProducer for injection |
+| `GlideMQModule.registerBroadcast({ name })` | Register a Broadcast for injection |
 
 ### Decorators
 
@@ -80,7 +81,9 @@ export class EmailService {
 |-----------|--------|-------------|
 | `@InjectQueue(name)` | Parameter | Inject a Queue instance |
 | `@InjectFlowProducer(name)` | Parameter | Inject a FlowProducer instance |
+| `@InjectBroadcast(name)` | Parameter | Inject a Broadcast instance |
 | `@Processor(name)` | Class | Mark a class as a queue processor |
+| `@BroadcastProcessor(opts)` | Class | Mark a class as a BroadcastWorker processor |
 | `@OnWorkerEvent(event)` | Method | Listen to worker events (completed, failed, etc.) |
 | `@QueueEventsListener(name)` | Class | Mark a class as a QueueEvents listener |
 | `@OnQueueEvent(event)` | Method | Listen to queue events |
@@ -111,6 +114,105 @@ export class PipelineService {
 }
 ```
 
+### Broadcast
+
+Broadcast enables pub/sub-style fan-out where each subscription receives its own copy of every published message and processes them independently.
+
+#### 1. Register a Broadcast
+
+```typescript
+@Module({
+  imports: [
+    GlideMQModule.forRoot({
+      connection: { addresses: [{ host: 'localhost', port: 6379 }] },
+    }),
+    GlideMQModule.registerBroadcast({ name: 'events' }),
+  ],
+  providers: [EmailBroadcastProcessor, EventPublisher],
+})
+export class AppModule {}
+```
+
+#### 2. Create a BroadcastProcessor
+
+Use the `@BroadcastProcessor` decorator to define a class that processes broadcast messages. Each subscription gets its own independent copy of every message.
+
+```typescript
+import { BroadcastProcessor, WorkerHost, OnWorkerEvent } from '@glidemq/nestjs';
+import type { Job } from 'glide-mq';
+
+@BroadcastProcessor({ name: 'events', subscription: 'email-service', concurrency: 5 })
+export class EmailBroadcastProcessor extends WorkerHost {
+  async process(job: Job) {
+    console.log(`Sending notification for event: ${job.data.type}`);
+    return { notified: true };
+  }
+
+  @OnWorkerEvent('completed')
+  onCompleted(job: Job) {
+    console.log(`Broadcast job ${job.id} completed`);
+  }
+}
+```
+
+#### 3. Publish messages
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectBroadcast } from '@glidemq/nestjs';
+import type { Broadcast } from 'glide-mq';
+
+@Injectable()
+export class EventPublisher {
+  constructor(@InjectBroadcast('events') private readonly broadcast: Broadcast) {}
+
+  async publish(eventType: string, payload: any) {
+    await this.broadcast.publish('event', { type: eventType, ...payload });
+  }
+}
+```
+
+### Default Job Options
+
+`RegisterQueueOptions` supports `defaultJobOptions` which are automatically applied to all jobs added through the queue. Per-job options override the defaults.
+
+```typescript
+GlideMQModule.registerQueue({
+  name: 'emails',
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 1000 },
+    removeOnComplete: true,
+  },
+})
+```
+
+### Custom Serializer
+
+Configure a custom serializer via `queueOpts` for custom data serialization/deserialization:
+
+```typescript
+GlideMQModule.registerQueue({
+  name: 'emails',
+  queueOpts: {
+    serializer: {
+      serialize: (data) => msgpack.encode(data),
+      deserialize: (buf) => msgpack.decode(buf),
+    },
+  },
+})
+```
+
+### New glide-mq Features
+
+The following glide-mq features are available through the injected Queue and FlowProducer instances:
+
+- **LIFO mode** - Process jobs last-in-first-out via `defaultJobOptions: { lifo: true }` or per-job `{ lifo: true }`
+- **Custom job IDs** - Set explicit IDs with `queue.add('name', data, { jobId: 'my-id' })`
+- **addAndWait** - Add a job and await its result with `queue.addAndWait('name', data)`
+- **DAG workflows** - Build directed acyclic graphs of dependent jobs using FlowProducer
+- **Step jobs** - Multi-step job processing with `moveToDelayed` and `moveToWaitingChildren`
+
 ### Testing
 
 No Valkey needed - uses in-memory TestQueue/TestWorker from glide-mq:
@@ -124,6 +226,8 @@ const moduleRef = await Test.createTestingModule({
   providers: [EmailProcessor, EmailService],
 }).compile();
 ```
+
+> **Note:** `@BroadcastProcessor` classes are skipped in testing mode since BroadcastWorker does not have a test double.
 
 ## Ecosystem
 
