@@ -6,12 +6,12 @@ export type QueueEventType =
   | 'completed'
   | 'failed'
   | 'active'
-  | 'delayed'
   | 'progress'
   | 'stalled'
   | 'retrying'
   | 'removed'
-  | 'drained';
+  | 'drained'
+  | 'promoted';
 
 export const OnQueueEvent = (event: QueueEventType): MethodDecorator =>
   SetMetadata(QUEUE_EVENT_METADATA, event);
