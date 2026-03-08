@@ -1,16 +1,30 @@
 # @glidemq/nestjs
 
-NestJS module for [glide-mq](https://github.com/avifenesh/glide-mq) - decorators, dependency injection, and lifecycle management for queues and workers.
+[![npm](https://img.shields.io/npm/v/@glidemq/nestjs)](https://www.npmjs.com/package/@glidemq/nestjs)
+[![license](https://img.shields.io/npm/l/@glidemq/nestjs)](https://github.com/avifenesh/glidemq-nestjs/blob/main/LICENSE)
+
+NestJS module for [glide-mq](https://github.com/avifenesh/glide-mq) -- decorators, dependency injection, and lifecycle management for queues, workers, and broadcast.
+
+A BullMQ-style integration for NestJS built on glide-mq. Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Unlike the Hono, Fastify, and Dashboard packages (which expose REST APIs), this package is a pure NestJS DI module -- no HTTP routes, just decorators and providers.
+
+## Why @glidemq/nestjs
+
+- Use this when you want **decorator-based processors** (`@Processor`, `@BroadcastProcessor`) that auto-wire to workers on startup.
+- Use this when you need to **inject queues, producers, and flow producers** into services via `@InjectQueue`, `@InjectProducer`, etc.
+- Use this when your connection config lives in `ConfigService` and you need **async module configuration** with `forRootAsync`.
+- Use this when you want **broadcast pub/sub with subject filtering** integrated into the NestJS lifecycle.
+- Use this when you want **zero-boilerplate shutdown** -- all workers, queues, and connections close automatically via `OnApplicationShutdown`.
+
+## Install
 
 ```bash
-npm install @glidemq/nestjs glide-mq
+npm install @glidemq/nestjs glide-mq @nestjs/common @nestjs/core
 ```
 
-## Quick Start
-
-### 1. Import the module
+## Quick start
 
 ```typescript
+// 1. AppModule -- configure connection and register a queue
 import { Module } from '@nestjs/common';
 import { GlideMQModule } from '@glidemq/nestjs';
 
@@ -24,18 +38,15 @@ import { GlideMQModule } from '@glidemq/nestjs';
   providers: [EmailProcessor, EmailService],
 })
 export class AppModule {}
-```
 
-### 2. Create a processor
-
-```typescript
+// 2. EmailProcessor -- process jobs with a decorator
 import { Processor, WorkerHost, OnWorkerEvent } from '@glidemq/nestjs';
 import type { Job } from 'glide-mq';
 
 @Processor('emails')
 export class EmailProcessor extends WorkerHost {
   async process(job: Job) {
-    console.log(`Sending email to ${job.data.to}`);
+    await sendEmail(job.data.to, job.data.subject);
     return { sent: true };
   }
 
@@ -44,11 +55,8 @@ export class EmailProcessor extends WorkerHost {
     console.error(`Job ${job.id} failed:`, err.message);
   }
 }
-```
 
-### 3. Inject and use queues
-
-```typescript
+// 3. EmailService -- inject the queue and add jobs
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@glidemq/nestjs';
 import type { Queue } from 'glide-mq';
@@ -63,36 +71,40 @@ export class EmailService {
 }
 ```
 
-## API
+## How it works
 
-### Module methods
+`GlideMQModule.forRoot()` (or `forRootAsync()`) registers a global module that holds the Valkey connection config. `registerQueue`, `registerFlowProducer`, `registerBroadcast`, and `registerProducer` each create a provider for the named resource, making it available for injection. Classes decorated with `@Processor` or `@BroadcastProcessor` are discovered at startup via NestJS's `DiscoveryService`, and the module creates the corresponding `Worker` or `BroadcastWorker` instances automatically. On application shutdown, all workers, queues, broadcast instances, and producers are closed via `Promise.allSettled`.
+
+## Module methods
 
 | Method | Description |
 |--------|-------------|
-| `GlideMQModule.forRoot(options)` | Global module with connection config |
-| `GlideMQModule.forRootAsync(options)` | Async config (e.g., from ConfigService) |
-| `GlideMQModule.registerQueue({ name })` | Register a queue for injection |
-| `GlideMQModule.registerFlowProducer({ name })` | Register a FlowProducer for injection |
-| `GlideMQModule.registerBroadcast({ name })` | Register a Broadcast for injection |
-| `GlideMQModule.registerProducer({ name })` | Register a lightweight Producer for injection |
+| `GlideMQModule.forRoot(options)` | Global module with connection config. Accepts `connection`, `prefix`, and `testing`. |
+| `GlideMQModule.forRootAsync(options)` | Async config via `useFactory`, `useClass`, or `useExisting`. Supports `imports` and `inject`. |
+| `GlideMQModule.registerQueue(...opts)` | Register one or more queues. Accepts `name`, `connection`, `defaultJobOptions`, `queueOpts`. |
+| `GlideMQModule.registerFlowProducer(...opts)` | Register one or more FlowProducers for DAG workflows. Accepts `name`, `connection`. |
+| `GlideMQModule.registerBroadcast(...opts)` | Register one or more Broadcast instances. Accepts `name`, `connection`, `broadcastOpts`. |
+| `GlideMQModule.registerProducer(...opts)` | Register one or more lightweight Producers (serverless-friendly). Accepts `name`, `connection`, `producerOpts`. |
 
-### Decorators
+## Decorators
 
 | Decorator | Target | Description |
 |-----------|--------|-------------|
-| `@InjectQueue(name)` | Parameter | Inject a Queue instance |
-| `@InjectFlowProducer(name)` | Parameter | Inject a FlowProducer instance |
-| `@InjectBroadcast(name)` | Parameter | Inject a Broadcast instance |
-| `@InjectProducer(name)` | Parameter | Inject a Producer instance |
-| `@Processor(name)` | Class | Mark a class as a queue processor |
-| `@BroadcastProcessor(options)` | Class | Mark a class as a broadcast processor |
-| `@OnWorkerEvent(event)` | Method | Listen to worker events (completed, failed, etc.) |
-| `@QueueEventsListener(name)` | Class | Mark a class as a QueueEvents listener |
-| `@OnQueueEvent(event)` | Method | Listen to queue events |
+| `@Processor(name \| options)` | Class | Mark a class as a queue processor. Extend `WorkerHost` and implement `process(job)`. |
+| `@BroadcastProcessor(options)` | Class | Mark a class as a broadcast processor. Requires `name` and `subscription`. |
+| `@InjectQueue(name)` | Constructor param | Inject a `Queue` instance registered with `registerQueue`. |
+| `@InjectFlowProducer(name)` | Constructor param | Inject a `FlowProducer` instance registered with `registerFlowProducer`. |
+| `@InjectBroadcast(name)` | Constructor param | Inject a `Broadcast` instance registered with `registerBroadcast`. |
+| `@InjectProducer(name)` | Constructor param | Inject a `Producer` instance registered with `registerProducer`. |
+| `@OnWorkerEvent(event)` | Method | Listen to worker lifecycle events: `completed`, `failed`, `active`, `stalled`, `error`, `drained`, `closing`, `closed`. |
+| `@QueueEventsListener(name)` | Class | Mark a class as a server-side queue events listener. Extend `QueueEventsHost`. |
+| `@OnQueueEvent(event)` | Method | Listen to queue events: `added`, `completed`, `failed`, `active`, `progress`, `stalled`, `retrying`, `removed`, `drained`, `promoted`. |
 
-### Async configuration
+## Async configuration
 
 ```typescript
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
 GlideMQModule.forRootAsync({
   imports: [ConfigModule],
   useFactory: (config: ConfigService) => ({
@@ -104,182 +116,60 @@ GlideMQModule.forRootAsync({
 })
 ```
 
-### FlowProducer
+`forRootAsync` also supports `useClass` and `useExisting` -- implement the `GlideMQOptionsFactory` interface with a `createGlideMQOptions()` method.
 
-```typescript
-import { InjectFlowProducer } from '@glidemq/nestjs';
-import type { FlowProducer } from 'glide-mq';
+## Broadcast
 
-@Injectable()
-export class PipelineService {
-  constructor(@InjectFlowProducer('workflows') private readonly flow: FlowProducer) {}
-}
-```
-
-### Producer (lightweight serverless producer)
-
-`Producer` is a lightweight alternative to `Queue` for serverless/edge environments - no EventEmitter overhead, returns string IDs, and supports `add()` and `addBulk()`.
-
-```typescript
-import { Module } from '@nestjs/common';
-import { GlideMQModule } from '@glidemq/nestjs';
-
-@Module({
-  imports: [
-    GlideMQModule.forRoot({
-      connection: { addresses: [{ host: 'localhost', port: 6379 }] },
-    }),
-    GlideMQModule.registerProducer({ name: 'notifications' }),
-  ],
-  providers: [NotificationService],
-})
-export class AppModule {}
-```
-
-Inject and use:
-
-```typescript
-import { Injectable } from '@nestjs/common';
-import { InjectProducer } from '@glidemq/nestjs';
-import type { Producer } from 'glide-mq';
-
-@Injectable()
-export class NotificationService {
-  constructor(@InjectProducer('notifications') private readonly producer: Producer) {}
-
-  async notify(userId: string, message: string): Promise<string> {
-    return this.producer.add('push', { userId, message });
-  }
-}
-```
-
-### Broadcast
-
-Broadcast enables pub/sub-style fan-out where each subscription receives its own copy of every published message and processes them independently.
-
-#### 1. Register a Broadcast
-
-```typescript
-import { Module } from '@nestjs/common';
-import { GlideMQModule } from '@glidemq/nestjs';
-
-@Module({
-  imports: [
-    GlideMQModule.forRoot({
-      connection: { addresses: [{ host: 'localhost', port: 6379 }] },
-    }),
-    GlideMQModule.registerBroadcast({ name: 'events' }),
-  ],
-  providers: [EmailBroadcastProcessor, EventPublisher, OrderEventsProcessor],
-})
-export class AppModule {}
-```
-
-#### 2. Create a BroadcastProcessor
-
-Use the `@BroadcastProcessor` decorator to define a class that processes broadcast messages. Each subscription gets its own independent copy of every message.
-
-```typescript
-import { BroadcastProcessor, WorkerHost, OnWorkerEvent } from '@glidemq/nestjs';
-import type { Job } from 'glide-mq';
-
-@BroadcastProcessor({ name: 'events', subscription: 'email-service', concurrency: 5 })
-export class EmailBroadcastProcessor extends WorkerHost {
-  async process(job: Job) {
-    console.log(`Sending notification for event: ${job.data.type}`);
-    return { notified: true };
-  }
-
-  @OnWorkerEvent('completed')
-  onCompleted(job: Job) {
-    console.log(`Broadcast job ${job.id} completed`);
-  }
-}
-```
-
-#### 3. Publish messages
-
-```typescript
-import { Injectable } from '@nestjs/common';
-import { InjectBroadcast } from '@glidemq/nestjs';
-import type { Broadcast } from 'glide-mq';
-
-@Injectable()
-export class EventPublisher {
-  constructor(@InjectBroadcast('events') private readonly broadcast: Broadcast) {}
-
-  async publishOrderCreated(order: any) {
-    await this.broadcast.publish('orders.created', { orderId: order.id });
-  }
-}
-```
-
-#### 4. Subject-based filtering
-
-Process broadcast messages with subject filtering using the `subjects` option on `@BroadcastProcessor`:
+Broadcast enables pub/sub fan-out where each subscription gets its own copy of every published message. Use `subjects` for client-side filtering.
 
 ```typescript
 import { BroadcastProcessor, WorkerHost } from '@glidemq/nestjs';
+import type { Job } from 'glide-mq';
 
 @BroadcastProcessor({
   name: 'events',
   subscription: 'order-handler',
   subjects: ['orders.*'],
+  concurrency: 5,
 })
 export class OrderEventsProcessor extends WorkerHost {
-  async process(job: any) {
+  async process(job: Job) {
     console.log('Order event:', job.data);
   }
 }
 ```
 
-### Default Job Options
-
-`RegisterQueueOptions` supports `defaultJobOptions` which are automatically applied to all jobs added through the queue. Per-job options override the defaults.
+Publish via `@InjectBroadcast`:
 
 ```typescript
-GlideMQModule.registerQueue({
-  name: 'emails',
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 1000 },
-    removeOnComplete: true,
-  },
-})
+@Injectable()
+export class EventPublisher {
+  constructor(@InjectBroadcast('events') private readonly broadcast: Broadcast) {}
+
+  async publishOrderCreated(orderId: string) {
+    await this.broadcast.publish('orders.created', { orderId });
+  }
+}
 ```
 
-### Custom Serializer
+## Features
 
-Configure a custom serializer via `queueOpts` for custom data serialization/deserialization:
+- **FlowProducer and DAG workflows** -- register a FlowProducer to build directed acyclic graphs of dependent jobs across queues.
+- **Default job options** -- set `defaultJobOptions` on `registerQueue` (attempts, backoff, TTL, removeOnComplete) and they apply to every `add()` and `addBulk()` call. Per-job options override.
+- **Step jobs** -- use `moveToDelayed` and `moveToWaitingChildren` inside processors for multi-step workflows.
+- **Broadcast with subject filtering** -- `@BroadcastProcessor` supports `subjects` globs so each subscription only processes matching messages.
+- **Producer (serverless-friendly)** -- `registerProducer` provides a lightweight alternative to `Queue` with no EventEmitter overhead. Supports custom `serializer` and `compression` options.
+- **Custom serializers** -- pass a `serializer` via `queueOpts` or `producerOpts` for msgpack, protobuf, or any custom encoding.
+- **LIFO mode and custom job IDs** -- available through `defaultJobOptions` or per-job options on the injected Queue.
+- **Graceful shutdown** -- all workers, queues, producers, broadcasts, FlowProducers, and QueueEvents are closed automatically via `OnApplicationShutdown`.
 
-```typescript
-GlideMQModule.registerQueue({
-  name: 'emails',
-  queueOpts: {
-    serializer: {
-      serialize: (data) => msgpack.encode(data),
-      deserialize: (buf) => msgpack.decode(buf),
-    },
-  },
-})
-```
+## Testing
 
-### New glide-mq Features
-
-The following glide-mq features are available through the injected Queue and FlowProducer instances:
-
-- **LIFO mode** - Process jobs last-in-first-out via `defaultJobOptions: { lifo: true }` or per-job `{ lifo: true }`
-- **Custom job IDs** - Set explicit IDs with `queue.add('name', data, { jobId: 'my-id' })`
-- **addAndWait** - Add a job and await its result with `queue.addAndWait('name', data)`
-- **DAG workflows** - Build directed acyclic graphs of dependent jobs using FlowProducer
-- **Step jobs** - Multi-step job processing with `moveToDelayed` and `moveToWaitingChildren`
-
-
-### Testing
-
-No Valkey needed - uses in-memory TestQueue/TestWorker from glide-mq:
+No Valkey needed. Pass `testing: true` to use in-memory `TestQueue` and `TestWorker` from glide-mq:
 
 ```typescript
+import { Test } from '@nestjs/testing';
+
 const moduleRef = await Test.createTestingModule({
   imports: [
     GlideMQModule.forRoot({ testing: true }),
@@ -287,27 +177,38 @@ const moduleRef = await Test.createTestingModule({
   ],
   providers: [EmailProcessor, EmailService],
 }).compile();
+
+const service = moduleRef.get(EmailService);
+await service.send('test@example.com', 'Hello');
 ```
 
-> **Note:** `@BroadcastProcessor` classes are skipped in testing mode since BroadcastWorker does not have a test double.
+## Limitations
+
+- Requires NestJS 10+ and Node.js 20+.
+- `@BroadcastProcessor` classes are skipped in testing mode -- `BroadcastWorker` does not have a test double.
+- `@QueueEventsListener` is skipped entirely in testing mode -- `QueueEvents` requires a live Valkey connection.
+- `registerBroadcast` and `registerProducer` do not support `testing: true` -- they always require a connection.
+
+## Token helpers
+
+For advanced DI scenarios (custom providers, testing overrides), use the token functions to reference the same injection tokens the decorators use:
+
+`getQueueToken(name)`, `getFlowProducerToken(name)`, `getBroadcastToken(name)`, `getProducerToken(name)`, `getWorkerToken(name)`, `getQueueEventsToken(name)`.
 
 ## Ecosystem
 
 | Package | Description |
 |---------|-------------|
-| [glide-mq](https://github.com/avifenesh/glide-mq) | Core queue library |
-| [@glidemq/hono](https://github.com/avifenesh/glidemq-hono) | Hono middleware - REST API + SSE events |
-| [@glidemq/fastify](https://github.com/avifenesh/glidemq-fastify) | Fastify plugin - REST API + SSE events |
-| [@glidemq/dashboard](https://github.com/avifenesh/glidemq-dashboard) | Express middleware - web UI dashboard |
-| [@glidemq/nestjs](https://github.com/avifenesh/glidemq-nestjs) | NestJS module (you are here) |
-| [@glidemq/speedkey](https://github.com/avifenesh/speedkey) | Valkey GLIDE client with native NAPI bindings |
+| [glide-mq](https://github.com/avifenesh/glide-mq) | Core queue library -- producers, workers, schedulers, workflows |
+| [@glidemq/hono](https://github.com/avifenesh/glidemq-hono) | Hono middleware -- REST API + SSE events |
+| [@glidemq/fastify](https://github.com/avifenesh/glidemq-fastify) | Fastify plugin -- REST API + SSE events |
+| [@glidemq/dashboard](https://github.com/avifenesh/glidemq-dashboard) | Express middleware -- web UI dashboard |
+| **@glidemq/nestjs** | NestJS module -- decorators, DI, lifecycle management (you are here) |
 | [examples](https://github.com/avifenesh/glidemq-examples) | Framework integrations and use-case examples |
 
-## Requirements
+## Contributing
 
-- Node.js 20+
-- NestJS 10+
-- Valkey 7.0+ or Redis 7.0+ (except when using `testing: true`)
+Issues and pull requests: [github.com/avifenesh/glidemq-nestjs](https://github.com/avifenesh/glidemq-nestjs)
 
 ## License
 
