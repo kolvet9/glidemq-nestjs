@@ -5,7 +5,9 @@
 
 NestJS module for [glide-mq](https://github.com/avifenesh/glide-mq) -- decorators, dependency injection, and lifecycle management for queues, workers, and broadcast.
 
-A BullMQ-style integration for NestJS built on glide-mq. Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Unlike the Hono, Fastify, and Dashboard packages (which expose REST APIs), this package is a pure NestJS DI module -- no HTTP routes, just decorators and providers.
+A BullMQ-style integration for NestJS built on glide-mq. Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Unlike the Hono, Fastify, Hapi, and Dashboard packages (which expose REST APIs), this package is a pure NestJS DI module -- no HTTP routes, just decorators and providers.
+
+> If glide-mq is useful to you, consider [giving it a star](https://github.com/avifenesh/glide-mq). It helps others discover the project.
 
 ## Why @glidemq/nestjs
 
@@ -202,6 +204,7 @@ For advanced DI scenarios (custom providers, testing overrides), use the token f
 | [glide-mq](https://github.com/avifenesh/glide-mq) | Core queue library -- producers, workers, schedulers, workflows |
 | [@glidemq/hono](https://github.com/avifenesh/glidemq-hono) | Hono middleware -- REST API + SSE events |
 | [@glidemq/fastify](https://github.com/avifenesh/glidemq-fastify) | Fastify plugin -- REST API + SSE events |
+| [@glidemq/hapi](https://github.com/avifenesh/glidemq-hapi) | Hapi plugin -- REST API + SSE events |
 | [@glidemq/dashboard](https://github.com/avifenesh/glidemq-dashboard) | Express middleware -- web UI dashboard |
 | **@glidemq/nestjs** | NestJS module -- decorators, DI, lifecycle management (you are here) |
 | [examples](https://github.com/avifenesh/glidemq-examples) | Framework integrations and use-case examples |
