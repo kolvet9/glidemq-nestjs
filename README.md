@@ -5,7 +5,7 @@
 
 NestJS module for [glide-mq](https://github.com/avifenesh/glide-mq) -- decorators, dependency injection, and lifecycle management for queues, workers, and broadcast.
 
-A BullMQ-style integration for NestJS built on glide-mq. Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Unlike the Hono, Fastify, Hapi, and Dashboard packages (which expose REST APIs), this package is a pure NestJS DI module -- no HTTP routes, just decorators and providers.
+Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Pure DI module -- no HTTP routes, just decorators and providers.
 
 > If glide-mq is useful to you, consider [giving it a star](https://github.com/avifenesh/glide-mq). It helps others discover the project.
 
